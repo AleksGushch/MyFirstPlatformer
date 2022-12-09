@@ -11,6 +11,9 @@ public class PlayerInput : MonoBehaviour
     private Vector2 currentDirection;
     private Vector2 defaultDirection;
 
+    private GameObject switchTriggerZone;
+    private SwitchTrigger switchTrigger;
+
     public float Movement => horizontalMovement;
     public float UpMovement => verticalMovement;
 
@@ -31,6 +34,12 @@ public class PlayerInput : MonoBehaviour
     }
 
     public bool Enter => buttonEnter;
+
+    private void Start()
+    {
+        switchTriggerZone = GameObject.FindGameObjectWithTag("Switch");
+        switchTrigger = switchTriggerZone.GetComponent<SwitchTrigger>();
+    }
 
     private void Awake()
     {
@@ -63,9 +72,21 @@ public class PlayerInput : MonoBehaviour
         if(Input.GetButtonDown(GlobalVarNames.DstAttk))
             isFire2 = true;
 
-        if (Input.GetKeyDown(KeyCode.E)) 
-        {
-            buttonEnter = true;
-        }
+        TriggerZone();
     }
+
+    private void TriggerZone() 
+    {
+        if (switchTrigger.GetSwitch)
+        {
+            if (Input.GetKeyDown(KeyCode.E))
+            {
+                buttonEnter = true;
+            }
+        }
+        else
+        {
+            buttonEnter = false;
+        }
+    } 
 }
