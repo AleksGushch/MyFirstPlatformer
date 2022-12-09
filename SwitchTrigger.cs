@@ -8,6 +8,7 @@ public class SwitchTrigger : MonoBehaviour
     private bool switchTrigger;
     private PlayerInput playerInput;
     private GameObject player;
+    private Rigidbody2D rbPlayer;
     private GameObject Interface;
     private InterfaceController interfaceController;
     [SerializeField] private float switchTimer;
@@ -19,6 +20,7 @@ public class SwitchTrigger : MonoBehaviour
     {
         player = GameObject.Find("Player");
         playerInput = player.GetComponent<PlayerInput>();
+        rbPlayer = player.GetComponent<Rigidbody2D>();
         switchTrigger = false;
         Interface = GameObject.Find("Interface");
         interfaceController = Interface.GetComponent<InterfaceController>();
@@ -30,26 +32,23 @@ public class SwitchTrigger : MonoBehaviour
         if (collision.CompareTag("Player"))
         {
             interfaceController.InfoPanelActivate("Нажмите Е для активации переключателя!");
-            collision.gameObject.GetComponent<Rigidbody2D>().constraints=RigidbodyConstraints2D.FreezePositionX;
-            if (playerInput.Enter)
-            {
-                switchTrigger = true;
-                collision.gameObject.GetComponent<Rigidbody2D>().constraints = RigidbodyConstraints2D.None;
-                collision.gameObject.GetComponent<Rigidbody2D>().constraints = RigidbodyConstraints2D.FreezeRotation;
-                gameObject.GetComponentInChildren<Animator>().enabled = true;
-                gameObject.GetComponent<BoxCollider2D>().enabled = false;
-                interfaceController.InfoPanelDeactivate();
-            }
+            rbPlayer.constraints=RigidbodyConstraints2D.FreezeAll;
+            switchTrigger = true;
         }
     }
     private void Update()
     {
-        if (switchTrigger) 
+        if (playerInput.Enter) 
         {
+            rbPlayer.constraints = RigidbodyConstraints2D.None;
+            rbPlayer.constraints = RigidbodyConstraints2D.FreezeRotation;
+            gameObject.GetComponentInChildren<Animator>().enabled = true;
+            gameObject.GetComponent<BoxCollider2D>().enabled = false;
+            interfaceController.InfoPanelDeactivate();
             timer += Time.deltaTime;
             if (timer >= switchTimer)
             {
-                movingPlatform.GetComponent<SliderJoint2D>().useMotor = true;
+                movingPlatform.GetComponent<SliderJoint2D>().enabled = true;
                 timer = 0;
                 switchTrigger = false;
             }
