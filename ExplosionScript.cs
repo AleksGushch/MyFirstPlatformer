@@ -6,26 +6,13 @@ public class ExplosionScript : MonoBehaviour
 {
     [SerializeField] private GameObject clonExplosion;
     [SerializeField] private Transform explosionPosition;
-    private bool isActive;
-
-    private void Start()
-    {
-        isActive = true;
-    }
-
-    public void Explosion() 
-    {
-        if (transform.childCount <5)
-        {
-            GameObject explosionClon = Instantiate(clonExplosion, explosionPosition.position, Quaternion.identity);
-            isActive = false;
-        }
-    }
+    private bool oneClon=true;
     private void Update()
     {
-        if (isActive)
+        if ((transform.childCount < 2)&&oneClon)
         {
-            Explosion();
+            GameObject explosionClon = Instantiate(clonExplosion, explosionPosition.position, Quaternion.identity, gameObject.transform);
+            oneClon = false;
         }
     }
 }
