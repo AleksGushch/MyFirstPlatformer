@@ -22,8 +22,7 @@ public class PlayerController : MonoBehaviour
     private HP hp;
     private PlayerInput playerInput;
 
-    private GameObject ladder;
-    private LadderController ladderController;
+    private bool isLadder;
 
     public bool IsGround => isGround;
 
@@ -34,8 +33,7 @@ public class PlayerController : MonoBehaviour
         fighting = GetComponent<Fighting>();
         hp = GetComponent<HP>();
         playerInput = GetComponent<PlayerInput>();
-        ladder = GameObject.FindGameObjectWithTag("Ladder");
-        ladderController = ladder.GetComponent<LadderController>();
+        isLadder = false;
     }
 
     private void Update()
@@ -68,7 +66,7 @@ public class PlayerController : MonoBehaviour
                 rateOfFight = 0;
                 fighting.FightingDirection(playerInput.Direction);
             }
-        }
+        }       
     }
 
     void FixedUpdate()
@@ -85,9 +83,9 @@ public class PlayerController : MonoBehaviour
             {
                 player.velocity = new Vector2(playerInput.Movement * speed, player.velocity.y);
             }
-            else if (Mathf.Abs(playerInput.UpMovement) > 0.01f && ladderController.IsUp)
+            else if (Mathf.Abs(playerInput.UpMovement) > 0.01f && isLadder)
             {
-                player.velocity = new Vector2(player.velocity.x, playerInput.UpMovement * speed/2);
+                player.velocity = new Vector2(player.velocity.x, playerInput.UpMovement * speed / 2);
                 player.gravityScale = 0;
             }
             else 
@@ -105,5 +103,17 @@ public class PlayerController : MonoBehaviour
     {
         if (playerInput.IsJumping && isGround)
             player.velocity = new Vector2(player.velocity.x, jumpForce);
+    }
+
+    private void OnTriggerStay2D(Collider2D collision)
+    {
+        if (collision.CompareTag("Ladder"))
+        {
+            isLadder = true;
+        }
+        else 
+        {
+            isLadder = false;
+        }
     }
 }
