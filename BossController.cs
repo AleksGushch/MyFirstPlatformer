@@ -10,26 +10,38 @@ public class BossController : MonoBehaviour
 
     private Rigidbody2D rb;
     private SpriteRenderer sr;
+    private HP hp;
 
-    private bool isMelee, isMove, isShoot;
-    private float coefDetect = 2.5f, currentMeleeTime, currentMoveTime, currentTimeToRevert, currentShootingTime;
+    private bool isMelee, isMove, isShoot, getShootLH, getShootRH, isAOE;
+    private float coefDetect = 2.5f, currentMeleeTime, currentMoveTime, currentTimeToRevert, currentShootingTime, currentAOEtime;
     private RaycastHit2D meleeLeft, meleeRight;
+
+    private bool firstLine = false;
+    private bool secondLine = false;
+    private bool thirdLine = false;
 
     public bool IsMelee => isMelee;
     public bool IsShoot => isShoot;
+    public bool IsAOE => isAOE;
 
     private void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         sr = GetComponent<SpriteRenderer>();
+        hp = GetComponent<HP>();
         isMelee = false;
         isMove = false;
+        getShootLH = false;
+        getShootRH = false;
+        isShoot = false;
+        isAOE = false;
     }
 
     private void Update()
     {
         MeleeAttack();
         DetectionDistance();
+        HealthTresholds();
     }
 
     private void OnDrawGizmos()
@@ -95,6 +107,7 @@ public class BossController : MonoBehaviour
                 sr.flipX = false;
                 rb.velocity = Vector2.left * speed;
             }
+            getShootLH = true;
         }
         else if (detectRight && !meleeRight)
         {
@@ -104,19 +117,11 @@ public class BossController : MonoBehaviour
                 sr.flipX = true;
                 rb.velocity = Vector2.right * speed;
             }
+            getShootRH = true;
+        }
         else
-            {
-                rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
-                currentShootingTime += Time.deltaTime;
-                if (currentShootingTime < 1.2f)
-                    isShoot = true;
-                if (currentShootingTime >= 1.2f)
-                    isShoot = false;
-                if (currentShootingTime >= timeForShooting) 
-                {
-                    currentShootingTime = 0;
-                }
-            }
+        {
+            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
         }
         if (detectLeftWall && !detectLeft) 
         {
@@ -127,7 +132,38 @@ public class BossController : MonoBehaviour
                 sr.flipX = true;
             }
         }
-
+        else if (detectRightWall && !detectRight) 
+        {
+            currentTimeToRevert += Time.deltaTime;
+            if (currentTimeToRevert >= timeForRevert)
+            {
+                rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
+                sr.flipX = false;
+            }
+        }
+        if (!detectLeft && getShootLH)
+        {
+            isShoot = true;
+            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
+            currentShootingTime += Time.deltaTime;
+            if (currentShootingTime >= 1.2f) 
+            {
+                isShoot = false;
+                getShootLH = false;
+                currentShootingTime = 0;
+            }
+        }
+        if (!detectRight && getShootRH) 
+        {
+            isShoot = true;
+            currentShootingTime += Time.deltaTime;
+            if (currentShootingTime >= 1.2f)
+            {
+                isShoot = false;
+                getShootRH = false;
+                currentShootingTime = 0;
+            }
+        }
     }
 
     private void MoveTimer()
@@ -144,6 +180,73 @@ public class BossController : MonoBehaviour
         if (currentMoveTime >= timeForStop)
         {
             currentMoveTime = 0;
+        }
+    }
+
+    private void HealthTresholds() 
+    {
+        if (hp.GetHP < 0.75f && !firstLine)
+        {
+            AOE1();
+        }
+        else if (hp.GetHP < 0.5f && !secondLine)
+        {
+            AOE2();
+            
+        }
+        else if (hp.GetHP < 0.25f && !thirdLine) 
+        {
+            AOE3();
+        }
+    }
+
+    private void AOE1()
+    {
+        currentAOEtime += Time.deltaTime;
+        if (currentAOEtime < 1.3f)
+        {
+            isAOE = true;
+            isMove = false;
+        }
+        if (currentAOEtime >= 1.3f)
+        {
+            isAOE = false;
+            isMove = true;
+            currentAOEtime = 0;
+            firstLine = true;
+        }
+    }
+
+    private void AOE2()
+    {
+        currentAOEtime += Time.deltaTime;
+        if (currentAOEtime < 1.3f)
+        {
+            isAOE = true;
+            isMove = false;
+        }
+        if (currentAOEtime >= 1.3f)
+        {
+            isAOE = false;
+            isMove = true;
+            currentAOEtime = 0;
+            secondLine = true;
+        }
+    }
+    private void AOE3()
+    {
+        currentAOEtime += Time.deltaTime;
+        if (currentAOEtime < 1.3f)
+        {
+            isAOE = true;
+            isMove = false;
+        }
+        if (currentAOEtime >= 1.3f)
+        {
+            isAOE = false;
+            isMove = true;
+            currentAOEtime = 0;
+            thirdLine = true;
         }
     }
 }
