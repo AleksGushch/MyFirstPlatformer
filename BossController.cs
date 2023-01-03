@@ -2,24 +2,27 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+
 public class BossController : MonoBehaviour
 {
     [SerializeField] private Transform boss;
-    [SerializeField] private LayerMask layer, layerWall;
+    [SerializeField] private LayerMask layerPlayer, layerWall;
     [SerializeField] private float speed, timeForMove, timeForStop, timeForRevert, distance, speedOfMelee, timeForShooting;
 
     private Rigidbody2D rb;
     private SpriteRenderer sr;
     private HP hp;
+    private Fireball fireball;
+    private AOEcontrol aOEcontrol;
+    private Fighting fighting;
 
-    private bool isMelee, isMove, isShoot, getShootLH, getShootRH, isAOE;
-    private float coefDetect = 2.5f, currentMeleeTime, currentMoveTime, currentTimeToRevert, currentShootingTime, currentAOEtime;
+    private bool isMelee, melee, isMove, isShoot, shoot,isAOE, aoe;
+    private float currentMeleeTime, currentMoveTime, currentTimeToRevert, currentShootingTime, currentAOEtime;
     private RaycastHit2D meleeLeft, meleeRight;
-
-    private bool firstLine = false;
-    private bool secondLine = false;
-    private bool thirdLine = false;
-
+    private bool[] hpTreshold;
+    int hp_cut_off;
+    private Vector2 currentDirection;
+    
     public bool IsMelee => isMelee;
     public bool IsShoot => isShoot;
     public bool IsAOE => isAOE;
@@ -29,12 +32,22 @@ public class BossController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         sr = GetComponent<SpriteRenderer>();
         hp = GetComponent<HP>();
+        fireball = GetComponent<Fireball>();
+        aOEcontrol = GetComponent<AOEcontrol>();
+        fighting = GetComponent<Fighting>();
         isMelee = false;
+        melee = false;
         isMove = false;
-        getShootLH = false;
-        getShootRH = false;
         isShoot = false;
+        shoot = false;
         isAOE = false;
+        aoe = false;
+        hpTreshold = new bool[GlobalVarNames.HealthTresholds];
+        for (int i = 0; i < hpTreshold.Length; i++) 
+        {
+            hpTreshold[i] = false;
+        }
+        currentDirection = Vector2.left;
     }
 
     private void Update()
@@ -49,119 +62,110 @@ public class BossController : MonoBehaviour
         Gizmos.color = Color.red;
         Gizmos.DrawLine(boss.position, boss.position+Vector3.left * distance);
         Gizmos.DrawLine(boss.position, boss.position+Vector3.right * distance);
-        Gizmos.DrawWireSphere(transform.position, distance * coefDetect);
+        Gizmos.DrawWireSphere(transform.position, distance * GlobalVarNames.CoefficientForDetection);
     }
 
     private void MeleeAttack() 
     {
-        meleeLeft = Physics2D.Raycast(boss.position, Vector2.left, distance, layer);
-        meleeRight = Physics2D.Raycast(boss.position, Vector2.right, distance, layer);
+        if (boss != null)
+        {
+            meleeLeft = Physics2D.Raycast(boss.position, Vector2.left, distance, layerPlayer);
+            meleeRight = Physics2D.Raycast(boss.position, Vector2.right, distance, layerPlayer);
+        }
         if (meleeLeft)
         {
             sr.flipX = false;
             SpeedOfMelee();
         }
-        else if (meleeRight) 
+        else if (meleeRight)
         {
             sr.flipX = true;
             SpeedOfMelee();
         }
-        else if (isMelee)
+        else if (isMelee)// завершить атаку даже если игрок вышел из зоны ближнего боя
         {
             currentMeleeTime += Time.deltaTime;
-            if (currentMeleeTime >= 1.2f)
+            if (currentMeleeTime >= GlobalVarNames.TimeForAttackAnimation)
             {
                 isMelee = false;
             }
         }
     }
 
-    private void SpeedOfMelee() 
+    private void SpeedOfMelee()// периодичная атака босса если игрок стоит в зоне ближнего боя
     {
         currentMeleeTime += Time.deltaTime;
-        if (currentMeleeTime < 1.2f) 
+        if (currentMeleeTime < GlobalVarNames.TimeForAttackAnimation)
         {
             isMelee = true;
+            isShoot = false;
         }
-        if (currentMeleeTime >= 1.2f)//время анимации атаки(ближний бой)
+        if (currentMeleeTime >= GlobalVarNames.TimeForAttackAnimation * 0.7f)
+            FightingZoneRespawn();
+        if (currentMeleeTime >= GlobalVarNames.TimeForAttackAnimation)
         {
             isMelee = false;
         }
         if (currentMeleeTime >= speedOfMelee)
         {
             currentMeleeTime = 0;
+            melee = false;
         }
     }
 
     private void DetectionDistance()
     {
-        RaycastHit2D detectLeft = Physics2D.Raycast(boss.position, Vector2.left, distance * coefDetect, layer);
-        RaycastHit2D detectLeftWall = Physics2D.Raycast(boss.position, Vector2.left, distance * coefDetect, layerWall);
-        RaycastHit2D detectRight = Physics2D.Raycast(boss.position, Vector2.right, distance * coefDetect, layer);
-        RaycastHit2D detectRightWall = Physics2D.Raycast(boss.position, Vector2.right, distance * coefDetect, layerWall);
-        if (detectLeft && !meleeLeft)
+        if (boss != null)
         {
-            MoveTimer();
-            if (isMove)
+            RaycastHit2D detectLeft = Physics2D.Raycast(boss.position, Vector2.left, distance * GlobalVarNames.CoefficientForDetection, layerPlayer);
+            RaycastHit2D detectLeftWall = Physics2D.Raycast(boss.position, Vector2.left, distance * GlobalVarNames.CoefficientForDetection, layerWall);
+            RaycastHit2D detectRight = Physics2D.Raycast(boss.position, Vector2.right, distance * GlobalVarNames.CoefficientForDetection, layerPlayer);
+            RaycastHit2D detectRightWall = Physics2D.Raycast(boss.position, Vector2.right, distance * GlobalVarNames.CoefficientForDetection, layerWall);
+            if (detectLeft && !meleeLeft)
             {
-                sr.flipX = false;
-                rb.velocity = Vector2.left * speed;
+                MoveTimer();
+                if (isMove)
+                {
+                    sr.flipX = false;
+                    rb.velocity = Vector2.left * speed;
+                    currentDirection = Vector2.left;
+                }
+                else
+                {
+                    ShootingTime();
+                }
             }
-            getShootLH = true;
-        }
-        else if (detectRight && !meleeRight)
-        {
-            MoveTimer();
-            if (isMove)
+            else if (detectRight && !meleeRight)
             {
-                sr.flipX = true;
-                rb.velocity = Vector2.right * speed;
+                MoveTimer();
+                if (isMove)
+                {
+                    sr.flipX = true;
+                    rb.velocity = Vector2.right * speed;
+                    currentDirection = Vector2.right;
+                }
+                else
+                {
+                    ShootingTime();
+                }
             }
-            getShootRH = true;
-        }
-        else
-        {
-            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
-        }
-        if (detectLeftWall && !detectLeft) 
-        {
-            currentTimeToRevert += Time.deltaTime;
-            if (currentTimeToRevert >= timeForRevert)
+            if (detectLeftWall && !detectLeft)
             {
-                rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
-                sr.flipX = true;
+                currentTimeToRevert += Time.deltaTime;
+                if (currentTimeToRevert >= timeForRevert)
+                {
+                    rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
+                    sr.flipX = true;
+                }
             }
-        }
-        else if (detectRightWall && !detectRight) 
-        {
-            currentTimeToRevert += Time.deltaTime;
-            if (currentTimeToRevert >= timeForRevert)
+            else if (detectRightWall && !detectRight)
             {
-                rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
-                sr.flipX = false;
-            }
-        }
-        if (!detectLeft && getShootLH)
-        {
-            isShoot = true;
-            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
-            currentShootingTime += Time.deltaTime;
-            if (currentShootingTime >= 1.2f) 
-            {
-                isShoot = false;
-                getShootLH = false;
-                currentShootingTime = 0;
-            }
-        }
-        if (!detectRight && getShootRH) 
-        {
-            isShoot = true;
-            currentShootingTime += Time.deltaTime;
-            if (currentShootingTime >= 1.2f)
-            {
-                isShoot = false;
-                getShootRH = false;
-                currentShootingTime = 0;
+                currentTimeToRevert += Time.deltaTime;
+                if (currentTimeToRevert >= timeForRevert)
+                {
+                    rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
+                    sr.flipX = false;
+                }
             }
         }
     }
@@ -172,81 +176,100 @@ public class BossController : MonoBehaviour
         if (currentMoveTime < timeForMove)
         {
             isMove = true;
+            currentShootingTime = 0;
         }
-        if (currentMoveTime >= timeForMove)
+        else if (currentMoveTime >= timeForMove)
         {
             isMove = false;
         }
-        if (currentMoveTime >= timeForStop)
+    }
+
+    private void ShootingTime() 
+    {
+        rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y);
+        currentShootingTime += Time.deltaTime;
+        if (currentShootingTime < timeForShooting)
         {
+            isShoot = false;
+        }
+        else if (currentShootingTime >= timeForShooting)
+        {
+            isShoot = true;
+        }
+        if (currentShootingTime >= timeForShooting + GlobalVarNames.TimeForAttackAnimation * 0.6f)
+            FireballRespawn();
+        if (currentShootingTime >= timeForShooting + GlobalVarNames.TimeForAttackAnimation)
+        {
+            isShoot = false;
+        }
+        if (currentShootingTime >= timeForStop) 
+        {
+            shoot = false;
             currentMoveTime = 0;
         }
     }
 
+    
     private void HealthTresholds() 
     {
-        if (hp.GetHP < 0.75f && !firstLine)
+        if ((hp.GetHP <= 0.75f && !hpTreshold[0]) || (hp.GetHP <= 0.5f && !hpTreshold[1]) || (hp.GetHP <= 0.25f) && !hpTreshold[2])
         {
-            AOE1();
+            AOE();
         }
-        else if (hp.GetHP < 0.5f && !secondLine)
+        if (!isAOE)
+            currentAOEtime = 0;
+    }
+
+    private void AOE()
+    {
+        currentAOEtime += Time.deltaTime;
+        if (currentAOEtime < GlobalVarNames.TimeForMassAttackAnimation)
         {
-            AOE2();
-            
+            isAOE = true;
+            if (!aoe)
+            {
+                StartCoroutine(aoeResp());
+                aoe = true;
+            }
+            isMelee = false;
+            isShoot = false;
+            isMove = false;
         }
-        else if (hp.GetHP < 0.25f && !thirdLine) 
+        else
         {
-            AOE3();
+            isAOE = false;
+            aoe = false;
+            hp_cut_off++;
+            hpTreshold[hp_cut_off - 1] = true;
         }
     }
 
-    private void AOE1()
+    private void FireballRespawn() 
     {
-        currentAOEtime += Time.deltaTime;
-        if (currentAOEtime < 1.3f)
+        if (!shoot)
         {
-            isAOE = true;
-            isMove = false;
-        }
-        if (currentAOEtime >= 1.3f)
-        {
-            isAOE = false;
-            isMove = true;
-            currentAOEtime = 0;
-            firstLine = true;
+            fireball.Shooting(currentDirection);
+            shoot = true;
         }
     }
 
-    private void AOE2()
+    private void FightingZoneRespawn() 
     {
-        currentAOEtime += Time.deltaTime;
-        if (currentAOEtime < 1.3f)
+        if (!melee) 
         {
-            isAOE = true;
-            isMove = false;
-        }
-        if (currentAOEtime >= 1.3f)
-        {
-            isAOE = false;
-            isMove = true;
-            currentAOEtime = 0;
-            secondLine = true;
+            fighting.FightingDirection(currentDirection);
+            melee = true;
         }
     }
-    private void AOE3()
+
+    private IEnumerator aoeResp() 
     {
-        currentAOEtime += Time.deltaTime;
-        if (currentAOEtime < 1.3f)
+        int i=1;
+        while (i <= 2)
         {
-            isAOE = true;
-            isMove = false;
-        }
-        if (currentAOEtime >= 1.3f)
-        {
-            isAOE = false;
-            isMove = true;
-            currentAOEtime = 0;
-            thirdLine = true;
+            yield return new WaitForSeconds(1f);
+            aOEcontrol.Shooting();
+            i++;
         }
     }
 }
